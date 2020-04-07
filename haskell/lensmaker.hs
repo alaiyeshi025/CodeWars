@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE TupleSections #-}
 
 module MicroLens where
 
@@ -17,19 +18,19 @@ class Profunctor p where
   lmap ::  (a' -> a) -> (p a b -> p a' b)
   lmap f = dimap f id
   rmap ::  (b -> b') -> (p a b -> p a b')
-  rmap f = dimap id f
-  
+  rmap = dimap id
+
 class Profunctor p => Choice p where
   left'  :: p a b -> p (Either a c) (Either b c)
   right' :: p a b -> p (Either c a) (Either c b)
-  
+
 instance Profunctor (->) where
   dimap f g h = g . h . f
-  
+
 instance Choice (->) where
   left'  f = either (Left . f) Right
   right' f = either Left (Right . f)
-  
+
 class Contravariant f where
   contramap :: (a' -> a) -> (f a -> f a')
 
@@ -52,42 +53,42 @@ instance Applicative Id where
 
 ---------------------------------------------------------
 -- The lens types you'll implement
-  
+
 -- | Optic is the general pattern for all other lens types.
 type Optic p f s t a b =
   p a (f b) -> p s (f t)
-  
+
 type Iso s t a b =
   forall p f . (Profunctor p, Functor f) =>
   Optic p f s t a b
-  
+
 type Lens s t a b =
-  forall f . Functor f => 
+  forall f . Functor f =>
   Optic (->) f s t a b
-  
+
 type Traversal s t a b =
   forall f . Applicative f =>
   Optic (->) f s t a b
-  
-type Fold s a = 
+
+type Fold s a =
   forall f . (Contravariant f, Applicative f) =>
   Optic (->) f s s a a
 
 type Prism s t a b =
   forall p f . (Choice p, Applicative f) =>
   Optic p f s t a b
-    
+
 ---------------------------------------------------------
 ---------------------------------------------------------
 -- Todo
 
 -- | A lens focusing on the first element in a pair
 _1 :: Lens (a, x) (b, x) a b
-_1 f (a,x) = fmap (\b-> (b,x)) (f a)
+_1 f (a,x) = fmap (,x) (f a)
 
 -- | A lens focusing on the second element in a pair
 _2 :: Lens (x, a) (x, b) a b
-_2 f (x,a) = fmap (\b->(x,b)) (f a)
+_2 f (x,a) = fmap (x,) (f a)
 
 -- | A function which takes a lens and looks through it.
 -- The type given is specialized to provide a hint as to
@@ -98,7 +99,7 @@ _2 f (x,a) = fmap (\b->(x,b)) (f a)
 -- view :: Lens s t a b -> (s -> a)
 -- @
 view :: Optic (->) (K a) s t a b -> (s -> a)
-view o = (\s-> getK (o (\a-> K a) s))
+view o = (\s-> getK (o K s))
 
 -- | A function which takes a lens and a transformation function
 -- and applies that transformer at the focal point of the lens.
@@ -122,20 +123,20 @@ over o f = (\s -> getId (o (fmap Id f) s))
 set :: Optic (->) Id s t a b -> b -> (s -> t)
 set o b = (\s-> getId (o (fmap Id (const b)) s))
 
--- | A traversal which focuses on each element in any 
+-- | A traversal which focuses on each element in any
 -- Traversable container.
 elements :: T.Traversable f => Traversal (f a) (f b) a b
-elements f fa = T.traverse f fa 
+elements = T.traverse
 
--- | A function which takes a Traversal and pulls out each 
--- element it focuses on in order. The type has been 
+-- | A function which takes a Traversal and pulls out each
+-- element it focuses on in order. The type has been
 -- specialized, as the others, but a more normal type might be
 --
 -- @
 -- toListOf :: Traversal s s a a -> (s -> [a])
 -- @
 toListOf :: Optic (->) (K (Endo [a])) s s a a -> (s -> [a])
-toListOf o = (\s -> appEndo (getK ((o (\a -> K (Endo (a:)))) s)) []) 
+toListOf o = (\s -> appEndo (getK ((o (\a -> K (Endo (a:)))) s)) [])
 
 -- | A function which takes any kind of Optic which might
 -- be focused on zero subparts and returns Just the first
@@ -163,13 +164,13 @@ _Left pafb = rmap (\efbx -> case efbx of
                               Left fb -> fmap Left fb
                               Right x -> pure (Right x))
                                       (left' pafb)
-                                         
-  
+
+
 -- | A prism which focuses on the right branch of an Either
 _Right :: Prism (Either x a) (Either x b) a b
 _Right pafb = rmap (\exfb -> case exfb of
                                Left x -> pure (Left x)
-                               Right fb -> fmap Right fb) (right' pafb) 
+                               Right fb -> fmap Right fb) (right' pafb)
 
 -- | An iso which witnesses that tuples can be flipped without
 -- losing any information
