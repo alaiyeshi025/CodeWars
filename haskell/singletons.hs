@@ -20,12 +20,6 @@ type instance m :< Zero = False
 type instance Zero :< Succ n = True
 type instance (Succ m) :< (Succ n) = m :< n
 
-type family (a :: Nat) := (b :: Nat) :: Bool
-type instance Zero := Zero = True
-type instance (Succ m) := Zero = False
-type instance Zero := (Succ m) = False
-type instance (Succ m) := (Succ n) = m := n
-
 type family (a :: Nat) :- (b :: Nat) :: Nat
 type instance Zero :- m = Zero
 type instance m :- Zero = m
@@ -53,10 +47,10 @@ replicate _ SZero = VNil
 replicate s (SSucc n) = VCons s (replicate s n)
 
 -- Both vectors must be of equal length
-zipWith :: ((n1 := n2) ~ True) => (s1 -> s2 -> s3) -> (Vec s1 n1) -> (Vec s2 n2) -> (Vec s3 n1)
+zipWith :: (s1 -> s2 -> s3) -> (Vec s1 n) -> (Vec s2 n) -> (Vec s3 n)
 zipWith f (VCons x xs) (VCons y ys) = (VCons (f x y) (zipWith f xs ys))
 zipWith f VNil VNil = VNil
-                      
+
 (++) :: Vec v m -> Vec v n -> Vec v (Add m n)
 VNil ++ b = b
 (VCons x xs) ++ b = (VCons x (xs ++ b))
